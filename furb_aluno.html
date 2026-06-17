@@ -40,7 +40,7 @@ input:focus{border-color:#1B4FA8;}
 .qbody p{font-size:18px;font-weight:700;line-height:1.45;color:#fff;}
 .qgrid{display:grid;grid-template-columns:1fr 1fr;flex-shrink:0;}
 .qopt{padding:22px 14px;font-size:15px;font-weight:700;color:#fff;display:flex;align-items:center;gap:10px;min-height:80px;cursor:pointer;-webkit-tap-highlight-color:rgba(255,255,255,.3);user-select:none;}
-.qopt:active{filter:brightness(.75);}
+.qopt:active,.qopt:focus{filter:brightness(.75);transform:scale(.97);}
 .qopt.c0{background:#E74C3C;} .qopt.c1{background:#3498DB;}
 .qopt.c2{background:#F39C12;} .qopt.c3{background:#27AE60;}
 .qopt.ok{box-shadow:inset 0 0 0 5px rgba(255,255,255,.9);}
@@ -76,9 +76,11 @@ input:focus{border-color:#1B4FA8;}
   <div class="card">
     <h1>🏆 FURB Quiz</h1>
     <p class="sub">Lei do Superendividamento 14.181/2021</p>
+    <form onsubmit="window.joinRoom();return false;" style="width:100%">
     <input class="room-in" id="inp-room" placeholder="CÓDIGO" maxlength="6" autocomplete="off">
     <input id="inp-name" placeholder="Seu nome completo" maxlength="30" autocomplete="off">
-    <button class="btn" onclick="joinRoom()">Entrar na Sala 🚀</button>
+    <button class="btn" type="submit">Entrar na Sala 🚀</button>
+    </form>
     <div class="err" id="err"></div>
   </div>
 </div>
@@ -156,7 +158,7 @@ async function dbPush(path,data){
   try{const r=await fetch(DB+path+'.json',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();return j.name;}catch(e){return 'err_'+Date.now();}
 }
 
-function show(id){
+window.show = function(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
@@ -167,7 +169,7 @@ if(urlRoom) document.getElementById('inp-room').value=urlRoom.toUpperCase();
 const savedName=sessionStorage.getItem('fq_name');
 if(savedName) document.getElementById('inp-name').value=savedName;
 
-async function joinRoom(){
+window.joinRoom = async function(){
   const code=document.getElementById('inp-room').value.trim().toUpperCase();
   const name=document.getElementById('inp-name').value.trim();
   const err=document.getElementById('err');
@@ -193,7 +195,7 @@ async function joinRoom(){
   startPolling();
 }
 
-function startPolling(){
+window.startPolling = function(){
   stateInterval=setInterval(async()=>{
     // Poll state
     const state=await dbGet('/rooms/'+roomCode+'/state');
@@ -214,7 +216,7 @@ function startPolling(){
   },1500);
 }
 
-function updatePlayers(players){
+window.updatePlayers = function(players){
   if(!players)return;
   const list=Object.entries(players);
   document.getElementById('lb-count').textContent='👥 '+list.length+' participante'+(list.length!==1?'s':'');
@@ -228,7 +230,7 @@ function updatePlayers(players){
   });
 }
 
-function handleState(state){
+window.handleState = function(state){
   clearInterval(timerInt);
   if(state.phase==='lobby') show('s-lobby');
   else if(state.phase==='question') renderQ(state.questionIndex,state.startedAt,state.timeLimitMs||20000);
@@ -236,7 +238,7 @@ function handleState(state){
   else if(state.phase==='done') renderDone();
 }
 
-function renderQ(qi,startedAt,limitMs){
+window.renderQ = function(qi,startedAt,limitMs){
   answered=false;
   const q=questions[qi];
   document.getElementById('qnum').textContent='Pergunta '+(qi+1)+'/'+questions.length;
@@ -244,7 +246,7 @@ function renderQ(qi,startedAt,limitMs){
   document.getElementById('qtext').textContent=q.q;
   const grid=document.getElementById('qgrid');
   grid.innerHTML=q.opts.map((o,i)=>
-    '<div class="qopt c'+i+'" id="qo'+i+'" onclick="answerQ('+qi+','+i+','+startedAt+','+limitMs+')"><span class="sh">'+shapes[i]+'</span>'+o+'</div>'
+    '<div class="qopt c'+i+'" id="qo'+i+'" ontouchstart="" onclick="window.answerQ('+qi+','+i+','+startedAt+','+limitMs+')"><span class="sh">'+shapes[i]+'</span>'+o+'</div>'
   ).join('');
   show('s-question');
   // Timer
@@ -258,7 +260,7 @@ function renderQ(qi,startedAt,limitMs){
   tick(); timerInt=setInterval(tick,100);
 }
 
-async function answerQ(qi,choice,startedAt,limitMs){
+window.answerQ = async function(qi,choice,startedAt,limitMs){
   if(answered)return;
   answered=true; clearInterval(timerInt);
   const elapsed=Date.now()-startedAt;
@@ -275,7 +277,7 @@ async function answerQ(qi,choice,startedAt,limitMs){
   if(ok){playerScore+=pts;await dbSet('/rooms/'+roomCode+'/players/'+playerId+'/score',playerScore);}
 }
 
-function renderFeedback(qi){
+window.renderFeedback = function(qi){
   dbGet('/rooms/'+roomCode+'/answers/'+qi+'/'+playerId).then(a=>{
     const ok=a&&a.correct; const pts=a?a.points:0;
     document.getElementById('fbi').textContent=ok?'✅':(a?'❌':'⏰');
@@ -287,7 +289,7 @@ function renderFeedback(qi){
   });
 }
 
-function renderDone(){
+window.renderDone = function(){
   document.getElementById('done-pts').textContent=playerScore.toLocaleString('pt-BR');
   dbGet('/rooms/'+roomCode+'/players').then(players=>{
     if(!players)return;
