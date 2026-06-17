@@ -256,14 +256,11 @@ function renderQuestion(qi, startedAt, limitMs){
     const b=document.createElement('button');
     b.className='qb c'+i; b.id='qb'+i;
     b.innerHTML='<span class="sh">'+shapes[i]+'</span>'+o;
-    // Use both click and touchend for maximum mobile compatibility
-    const handler=(e)=>{
+    // pointerdown works on ALL devices (mobile + desktop)
+    b.addEventListener('pointerdown', (e)=>{
       e.preventDefault();
-      e.stopPropagation();
       submitAns(qi,i,startedAt,limitMs);
-    };
-    b.addEventListener('click', handler);
-    b.addEventListener('touchend', handler, {passive:false});
+    });
     grid.appendChild(b);
   });
   show('s-question');
