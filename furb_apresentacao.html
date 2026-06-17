@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>FURB – Apresentação Professor</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Barlow+Condensed:wght@500;700&display=swap');
+:root{--blue:#1B4FA8;--dark:#0D2E6E;--gold:#F0A500;--light:#E8F0FB;--muted:#5a6080;--w:#fff;
+  --kr:#E74C3C;--kb:#3498DB;--kg:#F39C12;--kG:#27AE60;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Nunito',sans-serif;background:#0a1628;}
+.app{width:100%;height:100vh;display:flex;flex-direction:column;}
+
+/* TOPBAR */
+.topbar{background:#fff;border-bottom:2px solid var(--gold);padding:6px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px;}
+.logo img{height:60px;}
+.room-pill{background:var(--dark);color:#fff;border-radius:10px;padding:6px 14px;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:4px;cursor:pointer;user-select:all;}
+.room-pill span{font-size:11px;display:block;letter-spacing:1px;color:rgba(255,255,255,.6);text-transform:uppercase;margin-bottom:1px;}
+.pcount{background:var(--light);color:var(--blue);border-radius:10px;padding:6px 14px;font-weight:800;font-size:14px;}
+.progress-bar{height:4px;background:rgba(0,0,0,.08);flex-shrink:0;}
+.progress-fill{height:100%;background:var(--gold);transition:width .5s;}
+
+/* BODY LAYOUT */
+.body{display:flex;flex:1;overflow:hidden;}
+
+/* SLIDES */
+.slides-wrap{flex:1;overflow:hidden;position:relative;}
+.slide{display:none;height:100%;padding:28px 5% 20px;overflow-y:auto;flex-direction:column;background:#fff;animation:sIn .35s ease;}
+.slide.active{display:flex;}
+@keyframes sIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+
+/* SIDEBAR */
+.sidebar{width:280px;flex-shrink:0;background:#0D2E6E;display:flex;flex-direction:column;overflow:hidden;}
+.sb-header{padding:14px 16px 10px;border-bottom:1px solid rgba(255,255,255,.1);}
+.sb-title{font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:2px;}
+.sb-val{font-size:18px;font-weight:800;color:#fff;}
+.sb-body{flex:1;overflow-y:auto;padding:14px 16px;}
+.sb-body::-webkit-scrollbar{width:4px;}
+.sb-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+
+/* QR in sidebar */
+.qr-wrap{background:#fff;border-radius:12px;padding:12px;text-align:center;margin-bottom:12px;}
+.qr-wrap canvas,.qr-wrap img{width:100%!important;height:auto!important;}
+.qr-url{font-size:10px;color:var(--muted);word-break:break-all;margin-top:6px;}
+
+/* Player chips */
+.p-chip{background:rgba(255,255,255,.12);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.p-chip .dot{width:8px;height:8px;border-radius:50%;background:#27AE60;flex-shrink:0;}
+.p-chip .pts{margin-left:auto;color:var(--gold);font-size:12px;}
+
+/* Answer bars */
+.ans-bar-wrap{margin-bottom:10px;}
+.ans-bar-label{display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.7);margin-bottom:4px;font-weight:700;}
+.ans-bar{height:24px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.1);}
+.ans-fill{height:100%;border-radius:6px;transition:width .4s ease;display:flex;align-items:center;padding-left:8px;font-size:12px;font-weight:800;color:#fff;white-space:nowrap;}
+
+/* Leaderboard in sidebar */
+.lb-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.07);}
+.lb-rank{font-size:16px;font-weight:900;width:24px;text-align:center;}
+.lb-nm{flex:1;font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lb-sc{font-size:13px;font-weight:800;color:var(--gold);}
+
+/* Buttons in sidebar */
+.sb-btn{width:100%;border:none;border-radius:10px;padding:13px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:8px;transition:all .2s;}
+.sb-btn.green{background:#27AE60;color:#fff;}
+.sb-btn.green:hover{background:#1e8a4a;}
+.sb-btn.blue{background:var(--blue);color:#fff;}
+.sb-btn.blue:hover{background:var(--dark);}
+.sb-btn.orange{background:#E67E22;color:#fff;}
+.sb-btn:disabled{background:rgba(255,255,255,.15);color:rgba(255,255,255,.4);cursor:not-allowed;}
+.sb-info{font-size:12px;color:rgba(255,255,255,.45);text-align:center;margin-top:4px;}
+
+/* QUIZ QUESTION OVERLAY */
+.q-overlay{position:absolute;inset:0;background:#110335;display:none;flex-direction:column;}
+.q-overlay.active{display:flex;}
+.q-ov-top{background:#1e0850;padding:16px 24px 12px;flex-shrink:0;}
+.q-ov-timer-wrap{height:10px;background:rgba(255,255,255,.15);border-radius:5px;overflow:hidden;margin-bottom:10px;}
+.q-ov-timer{height:100%;background:var(--gold);border-radius:5px;transition:width .1s linear;}
+.q-ov-meta{display:flex;justify-content:space-between;align-items:center;}
+.q-ov-num{font-family:'Barlow Condensed',sans-serif;font-size:18px;color:rgba(255,255,255,.6);font-weight:700;}
+.q-ov-countdown{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;color:var(--gold);}
+.q-ov-body{flex:1;display:flex;align-items:center;justify-content:center;padding:20px 32px;text-align:center;}
+.q-ov-text{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;color:#fff;line-height:1.3;max-width:700px;}
+.q-ov-opts{display:grid;grid-template-columns:1fr 1fr;gap:0;flex-shrink:0;}
+.q-ov-opt{padding:16px 24px;font-family:'Nunito',sans-serif;font-size:16px;font-weight:700;color:#fff;display:flex;align-items:center;gap:14px;min-height:70px;border:none;}
+.q-ov-opt.o0{background:var(--kr);} .q-ov-opt.o1{background:var(--kb);}
+.q-ov-opt.o2{background:var(--kg);} .q-ov-opt.o3{background:var(--kG);}
+.q-ov-opt .sh{width:30px;height:30px;background:rgba(255,255,255,.25);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.q-ov-opt.correct{box-shadow:inset 0 0 0 5px rgba(255,255,255,.9);filter:brightness(1.15);}
+.q-ov-opt.dim{filter:brightness(.3);}
+
+/* SLIDE STYLES (same palette) */
+.slide-tag{display:inline-block;background:var(--light);color:var(--blue);font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:4px 12px;border-radius:20px;margin-bottom:12px;align-self:flex-start;}
+.slide-tag.gold{background:#FFF3CC;color:#8a5c00;}
+.slide-tag.red{background:#FDECEA;color:#8B1A1A;}
+.slide-tag.green{background:#E4F5EE;color:#1A6040;}
+.slide-title{font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:700;color:var(--dark);line-height:1.1;margin-bottom:6px;}
+.slide-title span{color:var(--blue);}
+.slide-sub{font-size:14px;color:var(--muted);margin-bottom:18px;line-height:1.5;}
+.cover{background:linear-gradient(135deg,var(--dark) 0%,#1B4FA8 60%,#2563C9 100%)!important;align-items:center;justify-content:center;text-align:center;}
+.cover .slide-title{color:#fff;font-size:42px;}
+.cover .slide-title span{color:var(--gold);}
+.cover .slide-sub{color:rgba(255,255,255,.75);font-size:15px;max-width:520px;margin:0 auto 20px;}
+.cover-icon{font-size:56px;margin-bottom:12px;}
+.cover-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:5px 16px;border-radius:20px;margin-bottom:16px;}
+.cover-pills{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.cpill{background:rgba(255,255,255,.12);border-radius:8px;padding:8px 14px;font-size:13px;color:#fff;}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:6px;}
+.card{background:var(--light);border-radius:12px;padding:14px;border-left:4px solid var(--blue);}
+.card.g{border-left-color:var(--gold);background:#FFFBEE;}
+.card.r{border-left-color:#D64444;background:#FFF5F5;}
+.card.gr{border-left-color:#1A8F60;background:#F0FAF5;}
+.card-icon{font-size:22px;margin-bottom:6px;}
+.card-title{font-weight:800;color:var(--dark);font-size:13px;margin-bottom:3px;}
+.card-text{font-size:12px;color:var(--muted);line-height:1.5;}
+.def-box{background:var(--dark);color:#fff;border-radius:12px;padding:18px 22px;margin:8px 0 14px;position:relative;overflow:hidden;}
+.def-box::before{content:'"';position:absolute;top:-10px;left:10px;font-size:90px;color:rgba(255,255,255,.07);font-family:serif;}
+.def-box p{font-size:14px;line-height:1.6;position:relative;z-index:1;}
+.def-box .ref{font-size:10px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:6px;}
+.cl{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.cl li{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--dark);background:#f9faff;border-radius:8px;padding:9px 12px;line-height:1.5;}
+.ci{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:1px;}
+.ci.b{background:var(--blue);color:#fff;} .ci.g{background:var(--gold);color:#fff;}
+.ci.gr{background:#1A8F60;color:#fff;} .ci.r{background:#D64444;color:#fff;}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0;}
+.stat-box{text-align:center;padding:14px 6px;border-radius:12px;background:var(--light);}
+.stat-n{font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:700;color:var(--blue);line-height:1;}
+.stat-l{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4;font-weight:600;}
+.alert{border-radius:10px;padding:11px 14px;font-size:13px;line-height:1.5;margin:8px 0;display:flex;gap:10px;align-items:flex-start;}
+.alert-i{font-size:18px;flex-shrink:0;}
+.info{background:var(--light);color:var(--dark);}
+.warn{background:#FFF8E1;color:#5a3c00;}
+.good{background:#E6F9F0;color:#0d3d26;}
+.tl{position:relative;padding-left:24px;}
+.tl::before{content:'';position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:#dde4f8;}
+.tl-item{position:relative;margin-bottom:14px;}
+.tl-dot{position:absolute;left:-20px;top:3px;width:10px;height:10px;border-radius:50%;background:var(--blue);border:2px solid #fff;box-shadow:0 0 0 2px var(--blue);}
+.tl-t{font-weight:800;font-size:13px;color:var(--dark);margin-bottom:2px;}
+.tl-d{font-size:12px;color:var(--muted);line-height:1.4;}
+.sl{font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:4px;}
+.bbar{margin:6px 0;}
+.bbl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;font-weight:700;color:var(--dark);}
+.bb{height:9px;border-radius:20px;background:#e0e6f5;overflow:hidden;}
+.bbf{height:100%;border-radius:20px;}
+.footer-slide{background:linear-gradient(135deg,var(--dark) 0%,#1B4FA8 100%)!important;align-items:center;justify-content:center;text-align:center;}
+.footer-slide .slide-title{color:#fff;font-size:38px;}
+.footer-slide .slide-title span{color:var(--gold);}
+.ftips{display:flex;gap:12px;margin:16px 0;justify-content:center;flex-wrap:wrap;}
+.ftip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:12px 14px;font-size:13px;color:#fff;max-width:200px;text-align:center;line-height:1.4;}
+
+/* QUIZ INTRO SLIDE */
+.quiz-intro{background:linear-gradient(135deg,#7B2FF7 0%,#3A0CA3 100%)!important;align-items:center;justify-content:center;text-align:center;}
+.quiz-intro h1{font-family:'Barlow Condensed',sans-serif;font-size:46px;color:#fff;margin-bottom:8px;}
+.quiz-intro p{font-size:15px;color:rgba(255,255,255,.8);max-width:440px;margin:0 auto 20px;line-height:1.5;}
+.qi-pills{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;}
+.qi-pill{background:rgba(255,255,255,.15);border-radius:10px;padding:9px 16px;font-size:13px;color:#fff;font-weight:700;}
+
+/* NAVBAR */
+.navbar{background:#f0f3fc;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #e0e6f5;flex-shrink:0;}
+.nav-btn{display:flex;align-items:center;gap:7px;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
+.nav-btn:hover{background:var(--dark);}
+.nav-btn:disabled{background:#cdd4ef;cursor:not-allowed;}
+.nav-btn.sec{background:transparent;color:var(--blue);border:2px solid var(--blue);}
+.nav-btn.sec:hover{background:var(--light);}
+.dots{display:flex;gap:5px;}
+.dot{width:7px;height:7px;border-radius:50%;background:#cdd4ef;cursor:pointer;transition:all .2s;}
+.dot.active{background:var(--blue);width:20px;border-radius:4px;}
+.dot.qz{background:#7B2FF7;}
+.dot.qz.active{background:#7B2FF7;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo"><img src="data:image/png;base64,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" alt="FURB"></div>
+  <div class="room-pill" id="room-pill" title="Clique para copiar"><span>Código da Sala</span><span id="room-code">Gerando...</span></div>
+  <div class="pcount" id="pcount">👥 0 alunos</div>
+</div>
+<div class="progress-bar"><div class="progress-fill" id="prog" style="width:11%"></div></div>
+
+<!-- BODY -->
+<div class="body">
+
+  <!-- SLIDES AREA -->
+  <div class="slides-wrap">
+
+    <!-- S1 COVER -->
+    <div class="slide cover active" id="s1">
+      <div class="cover-icon">💼</div>
+      <div class="cover-badge">FURB · Educação Financeira · Primeiro Emprego</div>
+      <div class="slide-title">Seu Dinheiro,<br><span>Seu Futuro</span></div>
+      <div class="slide-sub">Tudo sobre a <strong>Lei do Superendividamento (14.181/2021)</strong> — como protege sua família e como evitar precisar dela.</div>
+      <div class="cover-pills"><div class="cpill">🎯 Prevenção</div><div class="cpill">⚖️ Seus direitos</div><div class="cpill">💡 Dicas práticas</div><div class="cpill">🏆 Quiz ao vivo</div></div>
+    </div>
+
+    <!-- S2 REALIDADE -->
+    <div class="slide" id="s2">
+      <div class="slide-tag red">Realidade Brasileira</div>
+      <div class="slide-title">O Brasil e as <span>Dívidas</span></div>
+      <div class="slide-sub">Entender o cenário é o primeiro passo para não fazer parte dele.</div>
+      <div class="stat-row">
+        <div class="stat-box"><div class="stat-n" style="color:#D64444">77%</div><div class="stat-l">das famílias têm alguma dívida</div></div>
+        <div class="stat-box"><div class="stat-n" style="color:#C47A00">28%</div><div class="stat-l">estão com contas em atraso há meses</div></div>
+        <div class="stat-box"><div class="stat-n">1 em 5</div><div class="stat-l">brasileiros está superendividado</div></div>
+      </div>
+      <div class="alert warn"><span class="alert-i">⚠️</span><div>O <strong>cartão de crédito</strong> lidera o endividamento — presente em +85% dos casos. Juros de até 300% ao ano transformam qualquer dívida em pesadelo.</div></div>
+      <div class="cards" style="grid-template-columns:1fr 1fr;margin-top:10px;">
+        <div class="card r"><div class="card-title">🚫 O que leva ao superendividamento</div><div class="card-text">Crédito fácil sem planejamento, parcelamentos excessivos, perda de emprego, emergências sem reserva.</div></div>
+        <div class="card gr"><div class="card-title">✅ Quem escapa</div><div class="card-text">Quem planeja, tem reserva de emergência, entende juros e resiste à publicidade agressiva.</div></div>
+      </div>
+    </div>
+
+    <!-- S3 O QUE É -->
+    <div class="slide" id="s3">
+      <div class="slide-tag">Lei 14.181/2021</div>
+      <div class="slide-title">O que é <span>Superendividamento?</span></div>
+      <div class="def-box"><p>É a <strong>impossibilidade manifesta</strong> do consumidor pessoa natural, de boa-fé, de pagar a totalidade de suas dívidas de consumo — exigíveis e vincendas — <strong>sem comprometer seu mínimo existencial.</strong></p><div class="ref">Art. 54-A, §1º — Lei nº 14.181/2021</div></div>
+      <div class="two">
+        <div><div class="sl">O que inclui</div><ul class="cl"><li><span class="ci r">✓</span>Cartão de crédito e parcelamentos</li><li><span class="ci r">✓</span>Empréstimos pessoais</li><li><span class="ci r">✓</span>Cheque especial</li><li><span class="ci r">✓</span>Assinaturas acumuladas</li></ul></div>
+        <div><div class="sl">O que NÃO inclui</div><ul class="cl"><li><span class="ci b">✗</span>Financiamento imobiliário</li><li><span class="ci b">✗</span>Crédito rural</li><li><span class="ci b">✗</span>Dívidas por má-fé / fraude</li><li><span class="ci b">✗</span>Luxo e alto valor</li></ul></div>
+      </div>
+      <div class="alert info" style="margin-top:10px;"><span class="alert-i">ℹ️</span><div><strong>Mínimo existencial:</strong> valor mínimo para alimentação, moradia, saúde e dignidade. A lei protege isso — ninguém pode tomar para pagar dívidas.</div></div>
+    </div>
+
+    <!-- S4 DIREITOS -->
+    <div class="slide" id="s4">
+      <div class="slide-tag green">Seus Direitos</div>
+      <div class="slide-title">O que a <span>Lei Garante</span></div>
+      <div class="slide-sub">Direitos concretos criados pela Lei 14.181/2021:</div>
+      <div class="cards">
+        <div class="card"><div class="card-icon">📋</div><div class="card-title">Informação total antes do crédito</div><div class="card-text">Juros reais, CET, prazo e parcelas devem ser informados antes de você assinar.</div></div>
+        <div class="card g"><div class="card-icon">🛡️</div><div class="card-title">Proteção do mínimo existencial</div><div class="card-text">Nenhuma dívida pode consumir o valor mínimo para viver com dignidade.</div></div>
+        <div class="card gr"><div class="card-icon">🤝</div><div class="card-title">Conciliação e repactuação</div><div class="card-text">Renegociar todas as dívidas de uma vez, prazo de até 5 anos, perante um juiz.</div></div>
+        <div class="card r"><div class="card-icon">🚫</div><div class="card-title">Proibição de assédio</div><div class="card-text">Proibido pressionar consumidores — especialmente idosos e vulneráveis.</div></div>
+      </div>
+      <div class="alert good" style="margin-top:10px;"><span class="alert-i">⚖️</span><div>Se o credor esconder juros ou pressionar você: <strong>redução judicial dos juros</strong> + <strong>indenização por danos morais.</strong> (Art. 54-D)</div></div>
+    </div>
+
+    <!-- S5 PREVENÇÃO -->
+    <div class="slide" id="s5">
+      <div class="slide-tag green">Prevenção</div>
+      <div class="slide-title">Como <span>Não Precisar</span> da Lei</div>
+      <div class="slide-sub">A melhor proteção é nunca precisar acionar seus direitos.</div>
+      <div class="two">
+        <div><div class="sl" style="margin-bottom:8px">Regras de ouro</div>
+          <ul class="cl">
+            <li><span class="ci gr">1</span><div><strong>Regra 50/30/20:</strong> necessidades / desejos / poupança</div></li>
+            <li><span class="ci gr">2</span><div><strong>Reserva de emergência:</strong> 3 a 6 meses de gastos</div></li>
+            <li><span class="ci gr">3</span><div><strong>Compre à vista</strong> sempre que possível (5–15% de desconto)</div></li>
+            <li><span class="ci gr">4</span><div><strong>Cartão:</strong> só gaste o que já tem</div></li>
+            <li><span class="ci gr">5</span><div><strong>Nunca parcele</strong> comida, mercado ou combustível</div></li>
+          </ul>
+        </div>
+        <div><div class="sl" style="margin-bottom:8px">Orçamento — R$ 1.600</div>
+          <div class="bbar"><div class="bbl"><span>🏠 Necessidades (50%)</span><span>R$ 800</span></div><div class="bb"><div class="bbf" style="width:50%;background:#1B4FA8"></div></div></div>
+          <div class="bbar"><div class="bbl"><span>🎮 Lazer/desejos (30%)</span><span>R$ 480</span></div><div class="bb"><div class="bbf" style="width:30%;background:#F0A500"></div></div></div>
+          <div class="bbar"><div class="bbl"><span>💰 Poupança (20%)</span><span>R$ 320</span></div><div class="bb"><div class="bbf" style="width:20%;background:#1A8F60"></div></div></div>
+          <div class="alert info" style="margin-top:10px;padding:9px 12px;"><span class="alert-i">💡</span><div style="font-size:12px">R$ 320/mês → em 6 meses = R$ 1.920 de reserva!</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S6 CRÉDITO -->
+    <div class="slide" id="s6">
+      <div class="slide-tag">Crédito Responsável</div>
+      <div class="slide-title">Antes de <span>Contratar</span> Crédito</div>
+      <div class="slide-sub">A lei exige que credores informem tudo. Você deve perguntar tudo.</div>
+      <ul class="cl" style="gap:7px">
+        <li><span class="ci b">?</span><div><strong>Qual é o CET (Custo Efetivo Total)?</strong> Banco é obrigado a informar. (Art. 54-B, §2º)</div></li>
+        <li><span class="ci b">?</span><div><strong>Qual a taxa mensal e anual?</strong> "Parcelas pequenas" podem esconder juros absurdos.</div></li>
+        <li><span class="ci b">?</span><div><strong>Qual o total a pagar?</strong> Some todas as parcelas e compare com o valor original.</div></li>
+        <li><span class="ci b">?</span><div><strong>Posso quitar antecipadamente sem multa?</strong> Sim — direito garantido. (Art. 54-B, V)</div></li>
+        <li><span class="ci b">?</span><div><strong>Vou receber cópia do contrato?</strong> Sim — também é seu direito. (Art. 54-G, II)</div></li>
+      </ul>
+      <div class="cards" style="grid-template-columns:1fr 1fr;margin-top:10px">
+        <div class="card r"><div class="card-title">🚩 Sinais de alerta</div><div class="card-text">Aprovação sem consultar CPF, juros "zero" sem prazo claro, pressão para assinar rápido.</div></div>
+        <div class="card gr"><div class="card-title">✅ Boas práticas</div><div class="card-text">Compare ofertas, peça a minuta antes, leia tudo antes de assinar.</div></div>
+      </div>
+    </div>
+
+    <!-- S7 SE PRECISAR -->
+    <div class="slide" id="s7">
+      <div class="slide-tag red">Se Precisar da Lei</div>
+      <div class="slide-title">Como <span>Usar a Lei</span> 14.181/2021</div>
+      <div class="slide-sub">Se você ou sua família estiver superendividada, siga este caminho.</div>
+      <div class="tl">
+        <div class="tl-item"><div class="tl-dot" style="background:#F0A500;box-shadow:0 0 0 2px #F0A500"></div><div class="tl-t">1. Procure o PROCON</div><div class="tl-d">Conciliação administrativa gratuita, sem advogado. (Art. 104-C)</div></div>
+        <div class="tl-item"><div class="tl-dot"></div><div class="tl-t">2. Requerimento judicial de repactuação</div><div class="tl-d">O juiz convoca todos os credores para audiência. (Art. 104-A)</div></div>
+        <div class="tl-item"><div class="tl-dot"></div><div class="tl-t">3. Plano de pagamento — até 5 anos</div><div class="tl-d">Preservando o mínimo existencial. Credores precisam comparecer.</div></div>
+        <div class="tl-item"><div class="tl-dot" style="background:#1A8F60;box-shadow:0 0 0 2px #1A8F60"></div><div class="tl-t">4. Homologação → saída da inadimplência</div><div class="tl-d">Acordo tem força de título executivo. Você cumpre e sai dos cadastros.</div></div>
+      </div>
+      <div class="alert warn" style="margin-top:8px"><span class="alert-i">⚠️</span><div>Credor ausente na audiência tem o débito <strong>suspenso automaticamente.</strong> (Art. 104-A, §2º)</div></div>
+    </div>
+
+    <!-- S8 AJUDA -->
+    <div class="slide" id="s8">
+      <div class="slide-tag">Onde Buscar Ajuda</div>
+      <div class="slide-title">Recursos <span>Disponíveis</span></div>
+      <div class="slide-sub">Use preventivamente — não espere ter problemas para conhecê-los.</div>
+      <div class="cards">
+        <div class="card"><div class="card-icon">🏛️</div><div class="card-title">PROCON</div><div class="card-text">Gratuito, sem advogado. Conciliação e orientação sobre direitos do consumidor.</div></div>
+        <div class="card g"><div class="card-icon">⚖️</div><div class="card-title">Juizado Especial Cível</div><div class="card-text">Até 20 salários mínimos sem advogado. Gratuito e rápido.</div></div>
+        <div class="card gr"><div class="card-icon">📱</div><div class="card-title">Consumidor.gov.br</div><div class="card-text">Plataforma oficial do governo. Resolução em até 10 dias.</div></div>
+        <div class="card"><div class="card-icon">💳</div><div class="card-title">Serasa Limpa Nome</div><div class="card-text">Negociação online com descontos e parcelamentos especiais.</div></div>
+      </div>
+      <div class="alert info" style="margin-top:12px"><span class="alert-i">📚</span><div>A <strong>FURB</strong> oferece orientação jurídica e financeira gratuita pelo Núcleo de Prática Jurídica e programas de educação financeira.</div></div>
+    </div>
+
+    <!-- S9 CONCLUSÃO -->
+    <div class="slide footer-slide" id="s9">
+      <div class="cover-icon">🚀</div>
+      <div class="slide-title">Seu Futuro<br><span>Começa Agora</span></div>
+      <div class="slide-sub" style="color:rgba(255,255,255,.8);max-width:480px;margin-bottom:16px">A Lei do Superendividamento é sua rede de segurança. Mas a melhor estratégia é nunca precisar dela.</div>
+      <div class="ftips">
+        <div class="ftip"><div style="font-size:22px;margin-bottom:6px">💰</div>Anote seus gastos por 30 dias. O que você gasta revela o que você valoriza.</div>
+        <div class="ftip"><div style="font-size:22px;margin-bottom:6px">🎯</div>Antes de parcelar: <em>"Preciso disso agora ou posso poupar e comprar à vista?"</em></div>
+        <div class="ftip"><div style="font-size:22px;margin-bottom:6px">📖</div>Conheça seus direitos. Um consumidor informado é um consumidor protegido.</div>
+      </div>
+      <div style="background:rgba(255,255,255,.1);border-radius:10px;padding:8px 18px;font-size:11px;color:rgba(255,255,255,.5);margin-top:10px">
+        FURB · Universidade de Blumenau · Lei nº 14.181 de 1º de julho de 2021
+      </div>
+    </div>
+
+    <!-- S10 QUIZ INTRO -->
+    <div class="slide quiz-intro" id="s10">
+      <div style="font-size:60px;margin-bottom:14px">🏆</div>
+      <h1>Hora do Quiz!</h1>
+      <p>10 perguntas ao vivo. Os alunos respondem pelo celular e você vê os pontos em tempo real!</p>
+      <div class="qi-pills">
+        <div class="qi-pill">🎯 10 perguntas</div>
+        <div class="qi-pill">⏱️ 20 seg/questão</div>
+        <div class="qi-pill">⭐ Até 1.000 pts</div>
+      </div>
+    </div>
+
+    <!-- QUIZ QUESTION OVERLAY -->
+    <div class="q-overlay" id="q-overlay">
+      <div class="q-ov-top">
+        <div class="q-ov-timer-wrap"><div class="q-ov-timer" id="qov-timer"></div></div>
+        <div class="q-ov-meta">
+          <div class="q-ov-num" id="qov-num">Pergunta 1/10</div>
+          <div class="q-ov-countdown" id="qov-cd">20</div>
+        </div>
+      </div>
+      <div class="q-ov-body"><div class="q-ov-text" id="qov-text"></div></div>
+      <div class="q-ov-opts" id="qov-opts"></div>
+    </div>
+
+  </div><!-- /slides-wrap -->
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-header">
+      <div class="sb-title">Painel ao vivo</div>
+      <div class="sb-val" id="sb-mode">Aguardando alunos</div>
+    </div>
+    <div class="sb-body" id="sb-body">
+      <!-- dynamic content -->
+    </div>
+  </div>
+
+</div><!-- /body -->
+
+<!-- NAVBAR -->
+<div class="navbar" id="navbar">
+  <button class="nav-btn sec" id="prev-btn" onclick="changeSlide(-1)" disabled>← Anterior</button>
+  <div class="dots" id="dots"></div>
+  <button class="nav-btn" id="next-btn" onclick="changeSlide(1)">Próximo →</button>
+</div>
+
+</div><!-- /app -->
+<script>
+// ================================================================
+//  FIREBASE CONFIG — MESMO CONFIG DO ARQUIVO DE ALUNOS
+// ================================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyCFC1PEuBLNGvw6UIsDpujgSqQu4Uj1AEY",
+  authDomain: "projeto-cdc.firebaseapp.com",
+  databaseURL: "https://projeto-cdc-default-rtdb.firebaseio.com",
+  projectId: "projeto-cdc",
+  storageBucket: "projeto-cdc.firebasestorage.app",
+  messagingSenderId: "771845290950",
+  appId: "1:771845290950:web:29d16dd97071b3fa4690c7",
+  measurementId: "G-20V3TL2DMQ"
+};
+// ================================================================
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const TOTAL_SLIDES = 10;
+let cur = 1, quizActive = false, qIdx = -1, qTimerInt = null;
+const shapes = ['▲','◆','●','■'];
+const kcols = ['#E74C3C','#3498DB','#F39C12','#27AE60'];
+
+const questions=[
+  {q:"Uma oferta diz: 'Aprovação sem consulta ao SPC/Serasa!' Isso é:",opts:["Ótimo — crédito fácil para todos!","Proibido pela Lei 14.181/2021","Normal — é marketing permitido","Opcional, depende do banco"],correct:1,explain:"Art. 54-C, II: proibido indicar que o crédito pode ser concluído sem consulta a serviços de proteção ao crédito."},
+  {q:"Qual é o prazo máximo do plano de pagamento no processo judicial de superendividamento?",opts:["2 anos","10 anos","5 anos","3 anos"],correct:2,explain:"Art. 104-A: plano com prazo máximo de 5 anos, preservando o mínimo existencial."},
+  {q:"Sua família está superendividada. Qual é o PRIMEIRO passo recomendado?",opts:["Contratar um advogado particular","Ignorar e aguardar prescrever","Procurar o PROCON — é gratuito","Pagar primeiro a dívida maior"],correct:2,explain:"O PROCON conduz conciliação gratuita (Art. 104-C), sem necessidade de advogado."},
+  {q:"O que é o CET (Custo Efetivo Total)?",opts:["O total das parcelas sem juros","Taxa percentual anual com todos os encargos","O valor do produto à vista","A taxa de juros mensal apenas"],correct:1,explain:"Art. 54-B, §2º: o CET é taxa percentual anual que compreende todos os valores cobrados."},
+  {q:"Um credor não comparece à audiência de conciliação. O que acontece?",opts:["Nada — o processo é suspenso","O consumidor perde o direito","A exigibilidade do débito é suspensa automaticamente","O credor recebe multa apenas"],correct:2,explain:"Art. 104-A, §2º: ausência injustificada acarreta suspensão da exigibilidade e interrupção dos encargos."},
+  {q:"Você tem R$ 1.500 e quer um eletrônico de R$ 1.500. O mais inteligente é:",opts:["Parcelar em 12x e guardar o dinheiro","Usar cartão para acumular pontos","Pagar à vista — sem juros e com desconto","Esperar a Black Friday parcelada"],correct:2,explain:"Pagar à vista elimina juros, evita risco futuro e garante 5–15% de desconto."},
+  {q:"A Lei 14.181/2021 protege dívidas de quem agiu com má-fé ou fraude?",opts:["Sim, todos são protegidos igualmente","Não — a lei exige boa-fé do consumidor","Só se for a primeira dívida","Depende do valor da dívida"],correct:1,explain:"Art. 54-A, §3º: a lei NÃO se aplica a dívidas contraídas com fraude ou má-fé."},
+  {q:"Qual é a regra de renda mais recomendada para o primeiro emprego?",opts:["70% necessidades / 30% lazer","50% necessidades / 30% desejos / 20% poupança","60% necessidades / 40% lazer","40% poupança / 60% gastos"],correct:1,explain:"A regra 50/30/20: necessidades, desejos e poupança — base da saúde financeira."},
+  {q:"O Art. 54-C proíbe que o credor faça qual prática?",opts:["Cobrar juros sobre o principal","Assediar consumidores idosos a contratar crédito","Recusar crédito sem justificativa","Parcelar em mais de 12x"],correct:1,explain:"Art. 54-C, IV: vedado assediar ou pressionar o consumidor, principalmente idosos e vulneráveis."},
+  {q:"Qual financiamento está EXCLUÍDO do processo de repactuação?",opts:["Cartão de crédito","Empréstimo pessoal","Financiamento imobiliário","Cheque especial"],correct:2,explain:"Art. 104-A, §1º: excluem-se contratos com garantia real, financiamentos imobiliários e crédito rural."}
+];
+
+// ===================== ROOM SETUP =====================
+let roomCode = localStorage.getItem('furb_room');
+if (!roomCode) {
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  roomCode = Array.from({length:6},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+  localStorage.setItem('furb_room', roomCode);
+}
+document.getElementById('room-code').textContent = roomCode;
+
+// Init room in Firebase
+db.ref('rooms/'+roomCode+'/state').set({phase:'lobby',questionIndex:-1,startedAt:0,timeLimitMs:20000});
+
+// Build student URL
+const baseUrl = window.location.href.replace('furb_apresentacao.html','').replace(/[?#].*$/,'');
+const studentUrl = baseUrl + 'furb_aluno.html?room=' + roomCode;
+
+// Copy room code on click
+document.getElementById('room-pill').onclick = () => {
+  navigator.clipboard.writeText(studentUrl).catch(()=>{});
+  document.getElementById('room-code').textContent = 'COPIADO!';
+  setTimeout(()=>document.getElementById('room-code').textContent=roomCode, 1500);
+};
+
+// ===================== DOTS =====================
+const dotsEl = document.getElementById('dots');
+for(let i=1;i<=TOTAL_SLIDES;i++){
+  const d=document.createElement('div');
+  d.className='dot'+(i===10?' qz':'')+(i===1?' active':'');
+  d.onclick=()=>{ if(!quizActive) goTo(i); };
+  dotsEl.appendChild(d);
+}
+
+function goTo(n){
+  document.getElementById('s'+cur).classList.remove('active');
+  cur=n;
+  document.getElementById('s'+cur).classList.add('active');
+  updateNav();
+}
+function changeSlide(d){ goTo(cur+d); }
+function updateNav(){
+  document.getElementById('prog').style.width=(cur/TOTAL_SLIDES*100)+'%';
+  document.getElementById('prev-btn').disabled=cur<=1||quizActive;
+  document.getElementById('next-btn').disabled=cur>=TOTAL_SLIDES||quizActive;
+  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i+1===cur));
+}
+document.addEventListener('keydown',e=>{
+  if(quizActive)return;
+  if(e.key==='ArrowRight'&&cur<TOTAL_SLIDES)changeSlide(1);
+  if(e.key==='ArrowLeft'&&cur>1)changeSlide(-1);
+});
+
+// ===================== SIDEBAR =====================
+function renderSidebar(mode){
+  const body=document.getElementById('sb-body');
+  const title=document.getElementById('sb-mode');
+
+  if(mode==='lobby'){
+    title.textContent='Aguardando alunos';
+    body.innerHTML=`
+      <div class="qr-wrap">
+        <div id="qr-div"></div>
+        <div class="qr-url">${studentUrl}</div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:8px">Participantes</div>
+        <div id="player-list"></div>
+      </div>
+      <button class="sb-btn green" onclick="startQuiz()" id="start-btn">🚀 Iniciar Quiz</button>
+      <div class="sb-info" id="start-info">Aguardando ao menos 1 aluno...</div>
+    `;
+    // Generate QR
+    try { new QRCode(document.getElementById('qr-div'),{text:studentUrl,width:220,height:220,colorDark:'#0D2E6E',colorLight:'#ffffff'}); } catch(e){}
+    listenPlayers();
+
+  } else if(mode==='question'){
+    title.textContent='Pergunta '+(qIdx+1)+' ao vivo';
+    body.innerHTML=`
+      <div style="font-size:12px;font-weight:800;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Respostas ao vivo</div>
+      ${questions[qIdx].opts.map((o,i)=>`
+        <div class="ans-bar-wrap">
+          <div class="ans-bar-label"><span style="color:${kcols[i]}">${shapes[i]} ${o.substring(0,28)}${o.length>28?'...':''}</span><span id="cnt-${i}">0</span></div>
+          <div class="ans-bar"><div class="ans-fill" id="bar-${i}" style="width:0%;background:${kcols[i]}"></div></div>
+        </div>`).join('')}
+      <div style="font-size:13px;color:rgba(255,255,255,.5);margin-top:12px;text-align:center" id="total-ans">0 respostas</div>
+      <button class="sb-btn orange" onclick="revealAnswer()" style="margin-top:16px">Revelar Resposta ⏱️</button>
+    `;
+    listenAnswers();
+
+  } else if(mode==='reveal'){
+    title.textContent='Resposta revelada';
+    db.ref('rooms/'+roomCode+'/players').orderByChild('score').get().then(snap=>{
+      const pl=[];
+      snap.forEach(c=>pl.push({...c.val()}));
+      pl.sort((a,b)=>(b.score||0)-(a.score||0));
+      body.innerHTML=`
+        <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:10px">🏅 Placar</div>
+        ${pl.slice(0,8).map((p,i)=>`
+          <div class="lb-row">
+            <div class="lb-rank">${['🥇','🥈','🥉'][i]||i+1}</div>
+            <div class="lb-nm">${p.name}</div>
+            <div class="lb-sc">${(p.score||0).toLocaleString('pt-BR')}</div>
+          </div>`).join('')}
+        <button class="sb-btn blue" onclick="nextQuestion()" style="margin-top:16px">
+          ${qIdx+1<questions.length?'Próxima Pergunta →':'Ver Resultado Final 🏆'}
+        </button>
+      `;
+    });
+
+  } else if(mode==='done'){
+    title.textContent='Quiz finalizado!';
+    db.ref('rooms/'+roomCode+'/players').get().then(snap=>{
+      const pl=[];
+      snap.forEach(c=>pl.push({...c.val()}));
+      pl.sort((a,b)=>(b.score||0)-(a.score||0));
+      body.innerHTML=`
+        <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:10px">🏆 Resultado Final</div>
+        ${pl.map((p,i)=>`
+          <div class="lb-row">
+            <div class="lb-rank" style="${i===0?'color:#F0A500':i===1?'color:#aaa':i===2?'color:#cd7f32':''}">${['🥇','🥈','🥉'][i]||i+1}</div>
+            <div class="lb-nm">${p.name}</div>
+            <div class="lb-sc">${(p.score||0).toLocaleString('pt-BR')}</div>
+          </div>`).join('')}
+        <button class="sb-btn green" onclick="resetQuiz()" style="margin-top:14px">🔄 Novo Jogo</button>
+      `;
+    });
+  }
+}
+
+function listenPlayers(){
+  db.ref('rooms/'+roomCode+'/players').on('value', snap=>{
+    const pl=snap.val()||{};
+    const n=Object.keys(pl).length;
+    document.getElementById('pcount').textContent='👥 '+n+' aluno'+(n!==1?'s':'');
+    const list=document.getElementById('player-list');
+    if(!list)return;
+    list.innerHTML='';
+    Object.values(pl).sort((a,b)=>(b.score||0)-(a.score||0)).forEach(p=>{
+      const d=document.createElement('div');
+      d.className='p-chip';
+      d.innerHTML='<span class="dot"></span>'+p.name+'<span class="pts">'+((p.score||0).toLocaleString('pt-BR'))+' pts</span>';
+      list.appendChild(d);
+    });
+    const btn=document.getElementById('start-btn');
+    const inf=document.getElementById('start-info');
+    if(btn){ btn.disabled=n<1; if(inf) inf.textContent=n>0?n+' aluno'+(n!==1?'s pronto':'s pronto')+'s para jogar!':'Aguardando ao menos 1 aluno...';}
+  });
+}
+
+function listenAnswers(){
+  db.ref('rooms/'+roomCode+'/answers/'+qIdx).on('value', snap=>{
+    const ans=snap.val()||{};
+    const total=Object.keys(ans).length;
+    const counts=[0,0,0,0];
+    Object.values(ans).forEach(a=>{ if(a.choice>=0&&a.choice<4) counts[a.choice]++; });
+    counts.forEach((c,i)=>{
+      const bar=document.getElementById('bar-'+i);
+      const cnt=document.getElementById('cnt-'+i);
+      if(bar) bar.style.width=(total>0?Math.round(c/total*100):0)+'%';
+      if(cnt) cnt.textContent=c;
+    });
+    const el=document.getElementById('total-ans');
+    if(el) el.textContent=total+' resposta'+(total!==1?'s':'');
+  });
+}
+
+// ===================== QUIZ FLOW =====================
+function startQuiz(){
+  quizActive=true;
+  qIdx=0;
+  document.getElementById('navbar').style.display='none';
+  showQuestion();
+}
+
+function showQuestion(){
+  const q=questions[qIdx];
+  const overlay=document.getElementById('q-overlay');
+  overlay.classList.add('active');
+  document.getElementById('qov-num').textContent='Pergunta '+(qIdx+1)+'/'+questions.length;
+  document.getElementById('qov-text').textContent=q.q;
+  const optsEl=document.getElementById('qov-opts');
+  optsEl.innerHTML='';
+  q.opts.forEach((o,i)=>{
+    const div=document.createElement('div');
+    div.className='q-ov-opt o'+i;
+    div.innerHTML='<span class="sh">'+shapes[i]+'</span>'+o;
+    optsEl.appendChild(div);
+  });
+
+  const startedAt=Date.now();
+  db.ref('rooms/'+roomCode+'/state').set({phase:'question',questionIndex:qIdx,startedAt:startedAt,timeLimitMs:20000});
+  renderSidebar('question');
+
+  clearInterval(qTimerInt);
+  const updateTimer=()=>{
+    const rem=Math.max(0,20000-(Date.now()-startedAt))/1000;
+    const pct=rem/20*100;
+    const bar=document.getElementById('qov-timer');
+    const cd=document.getElementById('qov-cd');
+    if(bar){bar.style.width=pct+'%';bar.style.background=pct>50?'#F0A500':pct>25?'#E67E22':'#E74C3C';}
+    if(cd) cd.textContent=Math.ceil(rem);
+    if(rem<=0){clearInterval(qTimerInt);revealAnswer();}
+  };
+  updateTimer();
+  qTimerInt=setInterval(updateTimer,100);
+}
+
+function revealAnswer(){
+  clearInterval(qTimerInt);
+  db.ref('rooms/'+roomCode+'/answers/'+qIdx).off();
+  const q=questions[qIdx];
+  document.querySelectorAll('.q-ov-opt').forEach((el,i)=>{
+    el.className='q-ov-opt o'+i+(i===q.correct?' correct':' dim');
+  });
+  document.getElementById('qov-timer').style.width='0%';
+  document.getElementById('qov-cd').textContent='✓';
+  db.ref('rooms/'+roomCode+'/state').update({phase:'reveal'});
+  renderSidebar('reveal');
+}
+
+function nextQuestion(){
+  qIdx++;
+  if(qIdx<questions.length){ showQuestion(); }
+  else { endQuiz(); }
+}
+
+function endQuiz(){
+  clearInterval(qTimerInt);
+  document.getElementById('q-overlay').classList.remove('active');
+  db.ref('rooms/'+roomCode+'/state').update({phase:'done'});
+  renderSidebar('done');
+}
+
+function resetQuiz(){
+  quizActive=false; qIdx=-1;
+  document.getElementById('q-overlay').classList.remove('active');
+  document.getElementById('navbar').style.display='flex';
+  db.ref('rooms/'+roomCode+'/state').set({phase:'lobby',questionIndex:-1,startedAt:0,timeLimitMs:20000});
+  db.ref('rooms/'+roomCode+'/answers').remove();
+  db.ref('rooms/'+roomCode+'/players').remove();
+  renderSidebar('lobby');
+  updateNav();
+}
+
+// ===================== INIT =====================
+renderSidebar('lobby');
+updateNav();
+</script>
+</body>
+</html>
