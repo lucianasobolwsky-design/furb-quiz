@@ -47,7 +47,7 @@ html,body{width:100%;height:100%;font-family:'Segoe UI',sans-serif;background:#0
 .q-body{flex:1;display:flex;align-items:center;justify-content:center;padding:12px 16px;text-align:center;min-height:100px;}
 .q-body p{font-size:18px;font-weight:700;line-height:1.45;color:#fff;}
 .q-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;flex-shrink:0;}@media(max-width:480px){.q-grid{grid-template-columns:1fr;}.qb{min-height:70px;}}
-.qb{border:none;padding:20px 16px;font-family:inherit;font-size:16px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;min-height:90px;transition:filter .15s;text-align:left;-webkit-tap-highlight-color:rgba(255,255,255,0.3);touch-action:manipulation;user-select:none;-webkit-user-select:none;pointer-events:all;position:relative;z-index:10;}
+.qb{padding:20px 16px;font-family:inherit;font-size:16px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;min-height:90px;transition:filter .15s;text-align:left;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;-webkit-user-select:none;pointer-events:all;position:relative;z-index:10;-webkit-appearance:none;}
 .qb:active{filter:brightness(.8);} .qb{touch-action:manipulation;-webkit-tap-highlight-color:rgba(255,255,255,0.3);}
 .qb:disabled{cursor:default;}
 .qb.c0{background:#E74C3C;} .qb.c1{background:#3498DB;}
@@ -251,18 +251,13 @@ function renderQuestion(qi, startedAt, limitMs){
   document.getElementById('q-pts-live').textContent='⭐ '+playerScore.toLocaleString('pt-BR')+' pts';
   document.getElementById('q-text').textContent=q.q;
   const grid=document.getElementById('q-grid');
-  grid.innerHTML='';
-  q.opts.forEach((o,i)=>{
-    const b=document.createElement('button');
-    b.className='qb c'+i; b.id='qb'+i;
-    b.innerHTML='<span class="sh">'+shapes[i]+'</span>'+o;
-    // pointerdown works on ALL devices (mobile + desktop)
-    b.addEventListener('pointerdown', (e)=>{
-      e.preventDefault();
-      submitAns(qi,i,startedAt,limitMs);
-    });
-    grid.appendChild(b);
-  });
+  // Use divs with inline onclick — most reliable on ALL mobiles (Samsung, iPhone, etc.)
+  grid.innerHTML=q.opts.map((o,i)=>`
+    <div class="qb c${i}" id="qb${i}"
+      onclick="submitAns(${qi},${i},${startedAt},${limitMs})"
+      role="button" tabindex="0">
+      <span class="sh">${shapes[i]}</span>${o}
+    </div>`).join('');
   show('s-question');
   const tick=()=>{
     const rem=Math.max(0,limitMs-(Date.now()-startedAt));
@@ -272,7 +267,7 @@ function renderQuestion(qi, startedAt, limitMs){
       fill.style.width=pct+'%';
       fill.style.background=pct>50?'#F0A500':pct>25?'#E67E22':'#E74C3C';
     }
-    if(rem<=0){clearInterval(timerInt);if(!answered){answered=true;document.querySelectorAll('.qb').forEach(b=>b.disabled=true);}}
+    if(rem<=0){clearInterval(timerInt);if(!answered){answered=true;document.querySelectorAll('.qb').forEach(b=>b.style.pointerEvents='none');}}
   };
   tick(); timerInt=setInterval(tick,100);
 }
@@ -283,7 +278,7 @@ async function submitAns(qi,choice,startedAt,limitMs){
   
   // Feedback visual IMEDIATO no toque
   document.querySelectorAll('.qb').forEach((b,i)=>{
-    b.disabled=true;
+    b.style.pointerEvents='none';
     if(i===choice) b.style.opacity='0.7';
   });
   document.getElementById('q-pts-live').textContent='⏳ Salvando...';
