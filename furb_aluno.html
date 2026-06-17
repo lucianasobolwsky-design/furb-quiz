@@ -254,8 +254,9 @@ function renderQuestion(qi, startedAt, limitMs){
   // Use divs with inline onclick — most reliable on ALL mobiles (Samsung, iPhone, etc.)
   grid.innerHTML=q.opts.map((o,i)=>`
     <div class="qb c${i}" id="qb${i}"
-      onclick="submitAns(${qi},${i},${startedAt},${limitMs})"
-      role="button" tabindex="0">
+      onclick="window.submitAns(${qi},${i},${startedAt},${limitMs})"
+      role="button" tabindex="0"
+      style="cursor:pointer">
       <span class="sh">${shapes[i]}</span>${o}
     </div>`).join('');
   show('s-question');
@@ -272,7 +273,7 @@ function renderQuestion(qi, startedAt, limitMs){
   tick(); timerInt=setInterval(tick,100);
 }
 
-async function submitAns(qi,choice,startedAt,limitMs){
+window.submitAns = async function submitAns(qi,choice,startedAt,limitMs){
   if(answered)return;
   answered=true; clearInterval(timerInt);
   
