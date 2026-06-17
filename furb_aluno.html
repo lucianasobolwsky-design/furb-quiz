@@ -124,6 +124,19 @@ input:focus{border-color:#1B4FA8;}
 </div>
 
 <script>
+// ERROR DETECTOR - shows alert if any JS error occurs
+window.onerror = function(msg, url, line, col, err) {
+  alert('ERRO JS linha ' + line + ': ' + msg);
+  return false;
+};
+window.onunhandledrejection = function(e) {
+  alert('ERRO PROMISE: ' + e.reason);
+};
+// Test if JS is running at all
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('err').textContent = '✅ JavaScript funcionando';
+  setTimeout(function(){ document.getElementById('err').textContent = ''; }, 2000);
+});
 // =============================================
 // FIREBASE REST API — SEM SDK, FUNCIONA EM
 // QUALQUER CELULAR (Samsung, iPhone, etc.)
