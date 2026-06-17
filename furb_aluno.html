@@ -47,7 +47,7 @@ html,body{width:100%;height:100%;font-family:'Segoe UI',sans-serif;background:#0
 .q-body{flex:1;display:flex;align-items:center;justify-content:center;padding:12px 16px;text-align:center;min-height:100px;}
 .q-body p{font-size:18px;font-weight:700;line-height:1.45;color:#fff;}
 .q-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;flex-shrink:0;}@media(max-width:480px){.q-grid{grid-template-columns:1fr;}.qb{min-height:70px;}}
-.qb{border:none;padding:20px 16px;font-family:inherit;font-size:16px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;min-height:90px;transition:filter .15s;text-align:left;-webkit-tap-highlight-color:rgba(255,255,255,0.3);touch-action:manipulation;user-select:none;-webkit-user-select:none;}
+.qb{border:none;padding:20px 16px;font-family:inherit;font-size:16px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;min-height:90px;transition:filter .15s;text-align:left;-webkit-tap-highlight-color:rgba(255,255,255,0.3);touch-action:manipulation;user-select:none;-webkit-user-select:none;pointer-events:all;position:relative;z-index:10;}
 .qb:active{filter:brightness(.8);} .qb{touch-action:manipulation;-webkit-tap-highlight-color:rgba(255,255,255,0.3);}
 .qb:disabled{cursor:default;}
 .qb.c0{background:#E74C3C;} .qb.c1{background:#3498DB;}
@@ -256,7 +256,14 @@ function renderQuestion(qi, startedAt, limitMs){
     const b=document.createElement('button');
     b.className='qb c'+i; b.id='qb'+i;
     b.innerHTML='<span class="sh">'+shapes[i]+'</span>'+o;
-    b.onclick=()=>submitAns(qi,i,startedAt,limitMs);
+    // Use both click and touchend for maximum mobile compatibility
+    const handler=(e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      submitAns(qi,i,startedAt,limitMs);
+    };
+    b.addEventListener('click', handler);
+    b.addEventListener('touchend', handler, {passive:false});
     grid.appendChild(b);
   });
   show('s-question');
