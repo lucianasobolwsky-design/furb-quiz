@@ -569,7 +569,7 @@ function listenAnswers(){
   // Poll answers every 2s
   if(window._ansPoll) clearInterval(window._ansPoll);
   window._ansPoll = setInterval(async()=>{
-    const ans=await gasCall({action:'allAnswers',room:roomCode,qi:qIdx}) || {};
+    const r=await fetch(DB+'/rooms/'+roomCode+'/answers/'+qIdx+'.json');const ans=await r.json() || {};
     const total=Object.keys(ans).length;
     const counts=[0,0,0,0];
     Object.values(ans).forEach(a=>{ if(a.choice>=0&&a.choice<4) counts[a.choice]++; });
