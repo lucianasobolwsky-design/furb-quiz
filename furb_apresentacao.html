@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>FURB – Apresentação Professor</title>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Barlow+Condensed:wght@500;700&display=swap');
@@ -381,22 +379,18 @@ html,body{height:100%;font-family:'Nunito',sans-serif;background:#0a1628;}
 </div><!-- /app -->
 <script>
 // ================================================================
-//  FIREBASE CONFIG — MESMO CONFIG DO ARQUIVO DE ALUNOS
+// GAS BACKEND
 // ================================================================
-const firebaseConfig = {
-  apiKey: "AIzaSyCFC1PEuBLNGvw6UIsDpujgSqQu4Uj1AEY",
-  authDomain: "projeto-cdc.firebaseapp.com",
-  databaseURL: "https://projeto-cdc-default-rtdb.firebaseio.com",
-  projectId: "projeto-cdc",
-  storageBucket: "projeto-cdc.firebasestorage.app",
-  messagingSenderId: "771845290950",
-  appId: "1:771845290950:web:29d16dd97071b3fa4690c7",
-  measurementId: "G-20V3TL2DMQ"
-};
-// ================================================================
+const GAS = 'https://script.google.com/macros/s/AKfycbytljOP0OoC7xxXZ487mmMsBnrtw5mXUGUoDU7FVDAIwaKME5K4lcyAdw4x0jwqcSY/exec';
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+async function gasCall(params){
+  try{
+    const qs=Object.entries(params).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
+    const r=await fetch(GAS+'?'+qs);
+    return await r.json();
+  }catch(e){console.error('GAS error',e);return null;}
+}
+// ================================================================
 
 const TOTAL_SLIDES = 10;
 let cur = 1, quizActive = false, qIdx = -1, qTimerInt = null;
@@ -425,7 +419,7 @@ function newRoom(){
   if(!confirm('Gerar novo código? Os alunos precisarão entrar novamente.')) return;
   roomCode = Array.from({length:6},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
   document.getElementById('room-code').textContent = roomCode;
-  db.ref('rooms/'+roomCode+'/state').set({phase:'lobby',questionIndex:-1,startedAt:0,timeLimitMs:20000});
+  gasCall({action:'initRoom',room:roomCode});
   renderSidebar('lobby');
   quizActive=false; qIdx=-1;
   document.getElementById('navbar').style.display='flex';
@@ -434,7 +428,7 @@ function newRoom(){
 document.getElementById('room-code').textContent = roomCode;
 
 // Init room in Firebase
-db.ref('rooms/'+roomCode+'/state').set({phase:'lobby',questionIndex:-1,startedAt:0,timeLimitMs:20000});
+gasCall({action:'initRoom',room:roomCode});
 
 // Build student URL
 const baseUrl = window.location.href.replace('furb_apresentacao.html','').replace(/[?#].*$/,'');
@@ -514,10 +508,9 @@ function renderSidebar(mode){
 
   } else if(mode==='reveal'){
     title.textContent='Resposta revelada';
-    db.ref('rooms/'+roomCode+'/players').orderByChild('score').get().then(snap=>{
-      const pl=[];
-      snap.forEach(c=>pl.push({...c.val()}));
-      pl.sort((a,b)=>(b.score||0)-(a.score||0));
+    gasCall({action:'players',room:roomCode}).then(snap=>{
+      if(!snap) return;
+      const pl=Object.values(snap).sort((a,b)=>(b.score||0)-(a.score||0));
       body.innerHTML=`
         <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:10px">🏅 Placar</div>
         ${pl.slice(0,8).map((p,i)=>`
@@ -534,10 +527,9 @@ function renderSidebar(mode){
 
   } else if(mode==='done'){
     title.textContent='Quiz finalizado!';
-    db.ref('rooms/'+roomCode+'/players').get().then(snap=>{
-      const pl=[];
-      snap.forEach(c=>pl.push({...c.val()}));
-      pl.sort((a,b)=>(b.score||0)-(a.score||0));
+    gasCall({action:'players',room:roomCode}).then(snap=>{
+      if(!snap) return;
+      const pl=Object.values(snap).sort((a,b)=>(b.score||0)-(a.score||0));
       body.innerHTML=`
         <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:10px">🏆 Resultado Final</div>
         ${pl.map((p,i)=>`
@@ -573,8 +565,10 @@ function listenPlayers(){
 }
 
 function listenAnswers(){
-  db.ref('rooms/'+roomCode+'/answers/'+qIdx).on('value', snap=>{
-    const ans=snap.val()||{};
+  // Poll answers every 2s
+  if(window._ansPoll) clearInterval(window._ansPoll);
+  window._ansPoll = setInterval(async()=>{
+    const ans=await gasCall({action:'allAnswers',room:roomCode,qi:qIdx}) || {};
     const total=Object.keys(ans).length;
     const counts=[0,0,0,0];
     Object.values(ans).forEach(a=>{ if(a.choice>=0&&a.choice<4) counts[a.choice]++; });
@@ -586,13 +580,14 @@ function listenAnswers(){
     });
     const el=document.getElementById('total-ans');
     if(el) el.textContent=total+' resposta'+(total!==1?'s':'');
-  });
+  },2000);
 }
 
 // ===================== QUIZ FLOW =====================
 function startQuiz(){
   quizActive=true;
   qIdx=0;
+  if(window._playerPoll) clearInterval(window._playerPoll);
   document.getElementById('navbar').style.display='none';
   showQuestion();
 }
@@ -613,7 +608,7 @@ function showQuestion(){
   });
 
   const startedAt=Date.now();
-  db.ref('rooms/'+roomCode+'/state').set({phase:'question',questionIndex:qIdx,startedAt:startedAt,timeLimitMs:20000});
+  gasCall({action:'setState',room:roomCode,data:JSON.stringify({phase:'question',questionIndex:qIdx,startedAt:startedAt,timeLimitMs:20000})});
   renderSidebar('question');
 
   clearInterval(qTimerInt);
@@ -639,7 +634,7 @@ function revealAnswer(){
   });
   document.getElementById('qov-timer').style.width='0%';
   document.getElementById('qov-cd').textContent='✓';
-  db.ref('rooms/'+roomCode+'/state').update({phase:'reveal'});
+  gasCall({action:'setState',room:roomCode,data:JSON.stringify({phase:'reveal',questionIndex:qIdx,startedAt:0,timeLimitMs:20000})});
   renderSidebar('reveal');
 }
 
@@ -652,7 +647,7 @@ function nextQuestion(){
 function endQuiz(){
   clearInterval(qTimerInt);
   document.getElementById('q-overlay').classList.remove('active');
-  db.ref('rooms/'+roomCode+'/state').update({phase:'done'});
+  gasCall({action:'setState',room:roomCode,data:JSON.stringify({phase:'done',questionIndex:-1,startedAt:0,timeLimitMs:20000})});
   renderSidebar('done');
 }
 
@@ -660,7 +655,7 @@ function resetQuiz(){
   quizActive=false; qIdx=-1;
   document.getElementById('q-overlay').classList.remove('active');
   document.getElementById('navbar').style.display='flex';
-  db.ref('rooms/'+roomCode+'/state').set({phase:'lobby',questionIndex:-1,startedAt:0,timeLimitMs:20000});
+  gasCall({action:'initRoom',room:roomCode});
   db.ref('rooms/'+roomCode+'/answers').remove();
   db.ref('rooms/'+roomCode+'/players').remove();
   renderSidebar('lobby');
