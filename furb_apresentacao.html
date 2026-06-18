@@ -546,23 +546,27 @@ function renderSidebar(mode){
 }
 
 function listenPlayers(){
-  db.ref('rooms/'+roomCode+'/players').on('value', snap=>{
-    const pl=snap.val()||{};
-    const n=Object.keys(pl).length;
-    document.getElementById('pcount').textContent='👥 '+n+' aluno'+(n!==1?'s':'');
-    const list=document.getElementById('player-list');
-    if(!list)return;
-    list.innerHTML='';
-    Object.values(pl).sort((a,b)=>(b.score||0)-(a.score||0)).forEach(p=>{
-      const d=document.createElement('div');
-      d.className='p-chip';
-      d.innerHTML='<span class="dot"></span>'+p.name+'<span class="pts">'+((p.score||0).toLocaleString('pt-BR'))+' pts</span>';
-      list.appendChild(d);
-    });
-    const btn=document.getElementById('start-btn');
-    const inf=document.getElementById('start-info');
-    if(btn){ btn.disabled=n<1; if(inf) inf.textContent=n>0?n+' aluno'+(n!==1?'s pronto':'s pronto')+'s para jogar!':'Aguardando ao menos 1 aluno...';}
-  });
+  if(window._plPoll) clearInterval(window._plPoll);
+  window._plPoll = setInterval(async()=>{
+    try{
+      const r=await fetch(DB+'/rooms/'+roomCode+'/players.json');
+      const pl=await r.json()||{};
+      const n=Object.keys(pl).length;
+      document.getElementById('pcount').textContent='👥 '+n+' aluno'+(n!==1?'s':'');
+      const list=document.getElementById('player-list');
+      if(!list)return;
+      list.innerHTML='';
+      Object.values(pl).sort((a,b)=>(b.score||0)-(a.score||0)).forEach(p=>{
+        const d=document.createElement('div');
+        d.className='p-chip';
+        d.innerHTML='<span class="dot"></span>'+p.name+'<span class="pts">'+((p.score||0).toLocaleString('pt-BR'))+' pts</span>';
+        list.appendChild(d);
+      });
+      const btn=document.getElementById('start-btn');
+      const inf=document.getElementById('start-info');
+      if(btn){ btn.disabled=n<1; if(inf) inf.textContent=n>0?n+' aluno'+(n!==1?'s prontos':'s pronto')+' para jogar!':'Aguardando ao menos 1 aluno...';}
+    }catch(e){}
+  },2000);
 }
 
 function listenAnswers(){
@@ -628,7 +632,7 @@ function showQuestion(){
 
 function revealAnswer(){
   clearInterval(qTimerInt);
-  db.ref('rooms/'+roomCode+'/answers/'+qIdx).off();
+  // answers listener cleared
   const q=questions[qIdx];
   document.querySelectorAll('.q-ov-opt').forEach((el,i)=>{
     el.className='q-ov-opt o'+i+(i===q.correct?' correct':' dim');
@@ -657,8 +661,8 @@ function resetQuiz(){
   document.getElementById('q-overlay').classList.remove('active');
   document.getElementById('navbar').style.display='flex';
   fetch(DB+'/rooms/'+roomCode+'/state.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({phase:'lobby',questionIndex:-1,startedAt:0,timeLimitMs:20000})});
-  db.ref('rooms/'+roomCode+'/answers').remove();
-  db.ref('rooms/'+roomCode+'/players').remove();
+  fetch(DB+'/rooms/'+roomCode+'/answers.json',{method:'DELETE'});
+  fetch(DB+'/rooms/'+roomCode+'/players.json',{method:'DELETE'});
   renderSidebar('lobby');
   updateNav();
 }
