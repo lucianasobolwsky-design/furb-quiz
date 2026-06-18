@@ -141,11 +141,51 @@ document.addEventListener('DOMContentLoaded', function() {
 // FIREBASE REST API — SEM SDK, FUNCIONA EM
 // QUALQUER CELULAR (Samsung, iPhone, etc.)
 // =============================================
-const DB = 'https://projeto-cdc-default-rtdb.firebaseio.com';
+const GAS = 'https://script.google.com/macros/s/AKfycbytljOP0OoC7xxXZ487mmMsBnrtw5mXUGUoDU7FVDAIwaKME5K4lcyAdw4x0jwqcSY/exec';
 const shapes = ['▲','◆','●','■'];
 let roomCode='', playerId=sessionStorage.getItem('fq_pid')||null;
 let playerScore=0, answered=false, timerInt=null, stateInterval=null;
 let lastStateStr='', lastPlayersStr='';
+
+async function gasCall(params){
+  const DB='https://projeto-cdc-default-rtdb.firebaseio.com';
+  const action=params.action, room=params.room||'';
+  try{
+    if(action==='state'){
+      const r=await fetch(DB+'/rooms/'+room+'/state.json');
+      return r.json();
+    }
+    if(action==='join'){
+      await fetch(DB+'/rooms/'+room+'/players/'+params.pid+'.json',{
+        method:'PUT',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name:decodeURIComponent(params.name||''),score:0,joinedAt:Date.now()})
+      });
+      return {ok:true};
+    }
+    if(action==='submitAnswer'){
+      await fetch(DB+'/rooms/'+room+'/answers/'+params.qi+'/'+params.pid+'.json',{
+        method:'PUT',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({choice:parseInt(params.choice),points:parseInt(params.pts||0),correct:params.correct==='true',respondedAt:Date.now()})
+      });
+      return {ok:true};
+    }
+    if(action==='updateScore'){
+      await fetch(DB+'/rooms/'+room+'/players/'+params.pid+'/score.json',{
+        method:'PUT',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(parseInt(params.score||0))
+      });
+      return {ok:true};
+    }
+    if(action==='answer'){
+      const r=await fetch(DB+'/rooms/'+room+'/answers/'+params.qi+'/'+params.pid+'.json');
+      return r.json();
+    }
+    if(action==='players'){
+      const r=await fetch(DB+'/rooms/'+room+'/players.json');
+      return r.json();
+    }
+  }catch(e){console.error('Firebase error:',e);return null;}
+}
 
 const questions=[
   {q:"Uma oferta diz: 'Aprovação sem consulta ao SPC/Serasa!' Isso é:",opts:["Ótimo — crédito fácil!","Proibido pela Lei 14.181/2021","Normal — marketing permitido","Opcional, depende do banco"],correct:1,explain:"Art. 54-C, II: proibido indicar que o crédito pode ser concluído sem consulta a serviços de proteção."},
@@ -160,16 +200,7 @@ const questions=[
   {q:"Qual financiamento está EXCLUÍDO da repactuação?",opts:["Cartão de crédito","Empréstimo pessoal","Financiamento imobiliário","Cheque especial"],correct:2,explain:"Art. 104-A, §1º: excluem-se contratos com garantia real, financiamentos imobiliários e crédito rural."}
 ];
 
-// ---- REST API HELPERS ----
-async function dbGet(path){
-  try{const r=await fetch(DB+path+'.json');return r.json();}catch(e){return null;}
-}
-async function dbSet(path,data){
-  try{await fetch(DB+path+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});}catch(e){}
-}
-async function dbPush(path,data){
-  try{const r=await fetch(DB+path+'.json',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();return j.name;}catch(e){return 'err_'+Date.now();}
-}
+// GAS REST API via gasCall()
 
 window.show = function(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -190,18 +221,17 @@ window.joinRoom = async function(){
   if(!name){err.textContent='Digite seu nome';return;}
   err.textContent='Conectando...';
   
-  const state=await dbGet('/rooms/'+code+'/state');
-  if(!state){err.textContent='Sala não encontrada. Verifique o código.';return;}
+  const state=await gasCall({action:'state',room:code});
+  if(!state||state.error){err.textContent='Sala não encontrada. Verifique o código.';return;}
   
   roomCode=code;
   sessionStorage.setItem('fq_name',name);
   
   if(!playerId){
-    playerId=await dbPush('/rooms/'+roomCode+'/players',{name:name,score:0,joinedAt:Date.now()});
+    playerId='p_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
     sessionStorage.setItem('fq_pid',playerId);
-  } else {
-    await dbSet('/rooms/'+roomCode+'/players/'+playerId,{name:name,score:0,joinedAt:Date.now()});
   }
+  await gasCall({action:'join',room:roomCode,pid:playerId,name:name});
   
   document.getElementById('lb-title').textContent='Olá, '+name+'! 👋';
   show('s-lobby');
@@ -211,7 +241,7 @@ window.joinRoom = async function(){
 window.startPolling = function(){
   stateInterval=setInterval(async()=>{
     // Poll state
-    const state=await dbGet('/rooms/'+roomCode+'/state');
+    const state=await gasCall({action:'state',room:roomCode});
     const stateStr=JSON.stringify(state);
     if(stateStr!==lastStateStr){
       lastStateStr=stateStr;
@@ -219,7 +249,7 @@ window.startPolling = function(){
     }
     // Poll players (for lobby)
     if(document.getElementById('s-lobby').classList.contains('active')){
-      const players=await dbGet('/rooms/'+roomCode+'/players');
+      const players=await gasCall({action:'players',room:roomCode});
       const ps=JSON.stringify(players);
       if(ps!==lastPlayersStr){
         lastPlayersStr=ps;
@@ -286,12 +316,12 @@ window.answerQ = async function(qi,choice,startedAt,limitMs){
   });
   document.getElementById('qpts').textContent=ok?'✅ +'+pts+' pts!':'❌ +0 pts';
   // Save to Firebase
-  await dbSet('/rooms/'+roomCode+'/answers/'+qi+'/'+playerId,{choice,respondedAt:Date.now(),points:pts,correct:ok});
-  if(ok){playerScore+=pts;await dbSet('/rooms/'+roomCode+'/players/'+playerId+'/score',playerScore);}
+  await gasCall({action:'submitAnswer',room:roomCode,qi:qi,pid:playerId,choice:choice,pts:pts,correct:ok});
+  if(ok){playerScore+=pts;await gasCall({action:'updateScore',room:roomCode,pid:playerId,score:playerScore});}
 }
 
 window.renderFeedback = function(qi){
-  dbGet('/rooms/'+roomCode+'/answers/'+qi+'/'+playerId).then(a=>{
+  gasCall({action:'answer',room:roomCode,qi:qi,pid:playerId}).then(a=>{
     const ok=a&&a.correct; const pts=a?a.points:0;
     document.getElementById('fbi').textContent=ok?'✅':(a?'❌':'⏰');
     document.getElementById('fbt').textContent=ok?'Correto!':(a?'Incorreto':'Tempo esgotado!');
@@ -304,9 +334,9 @@ window.renderFeedback = function(qi){
 
 window.renderDone = function(){
   document.getElementById('done-pts').textContent=playerScore.toLocaleString('pt-BR');
-  dbGet('/rooms/'+roomCode+'/players').then(players=>{
+  gasCall({action:'players',room:roomCode}).then(players=>{
     if(!players)return;
-    const list=Object.entries(players).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));
+    if(!players)return; const list=Object.entries(players).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));
     const lb=document.getElementById('done-lb');
     lb.innerHTML=list.map((p,i)=>`<div class="lbr"><div class="lbrk">${['🥇','🥈','🥉'][i]||i+1}</div><div class="lbn"${p.id===playerId?' style="color:#1B4FA8;font-weight:900"':''}>${p.name}${p.id===playerId?' ★':''}</div><div class="lbs">${(p.score||0).toLocaleString('pt-BR')}</div></div>`).join('');
     show('s-done');
