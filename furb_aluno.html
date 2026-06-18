@@ -165,7 +165,7 @@ async function gasCall(params){
     if(action==='submitAnswer'){
       await fetch(DB+'/rooms/'+room+'/answers/'+params.qi+'/'+params.pid+'.json',{
         method:'PUT',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({choice:parseInt(params.choice),points:parseInt(params.pts||0),correct:params.correct==='true',respondedAt:Date.now()})
+        body:JSON.stringify({choice:parseInt(params.choice),points:parseInt(params.pts||0),correct:params.correct===true||params.correct==='true',respondedAt:Date.now()})
       });
       return {ok:true};
     }
@@ -292,6 +292,15 @@ window.renderQ = function(qi,startedAt,limitMs){
     '<div class="qopt c'+i+'" id="qo'+i+'" ontouchstart="" onclick="window.answerQ('+qi+','+i+','+startedAt+','+limitMs+')"><span class="sh">'+shapes[i]+'</span>'+o+'</div>'
   ).join('');
   show('s-question');
+  // Add touchend for Samsung/mobile reliability
+  document.querySelectorAll('.qopt').forEach(function(btn){
+    var i=parseInt(btn.id.replace('qo',''));
+    btn.addEventListener('touchend',function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      window.answerQ(qi,i,startedAt,limitMs);
+    },{passive:false});
+  });
   // Timer
   const tick=()=>{
     const rem=Math.max(0,limitMs-(Date.now()-startedAt));
